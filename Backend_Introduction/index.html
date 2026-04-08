@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Gestión</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; }
+        .container { display: flex; gap: 40px; flex-wrap: wrap; }
+        section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); flex: 1; min-width: 400px; }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        input { padding: 8px; margin-bottom: 10px; width: calc(100% - 20px); box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 8px 14px; cursor: pointer; border-radius: 4px; margin: 2px; }
+        button:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+        th { background: #f8f9fa; }
+        .actions { white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <h1>Panel de Control API</h1>
+    <div class="container">
+        <!-- ========== SECCIÓN TAREAS ========== -->
+        <section>
+            <h2>Tareas</h2>
+            <input type="text" id="taskContent" placeholder="¿Qué hay que hacer?">
+            <button onclick="addTask()">Añadir Tarea</button>
+            <table id="taskTable">
+                <thead><tr><th>ID</th><th>Tarea</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- ========== SECCIÓN USUARIOS ========== -->
+        <section>
+            <h2>Usuarios</h2>
+            <input type="text" id="userName" placeholder="Nombre">
+            <input type="text" id="userLastname" placeholder="Apellido">
+            <input type="text" id="userCity" placeholder="Ciudad">
+            <input type="text" id="userCountry" placeholder="País" value="Perú">
+            <input type="text" id="userCode" placeholder="Código postal" value="04000">
+            <button onclick="addUser()">Crear Usuario</button>
+            <table id="userTable">
+                <thead><tr><th>ID</th><th>Nombre</th><th>Apellido</th><th>Ciudad</th><th>País</th><th>Código</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        const API = "http://127.0.0.1:5000";
+
+        // ===================== TAREAS =====================
+
+        async function loadTasks() {
+            const res = await fetch(`${API}/tasks`);
+            const data = await res.json();
+            document.querySelector("#taskTable tbody").innerHTML = data.tasks.map(t => `
+                <tr>
+                    <td>${t.id}</td>
+                    <td>${t.content}</td>
+                    <td>${t.done ? '✅ Completada' : '⏳ Pendiente'}</td>
+                    <td class="actions">
+                        <button class="btn-success" onclick="toggleDone(${t.id})">${t.done ? 'Desmarcar' : 'Completar'}</button>
+                        <button class="btn-warning" onclick="editTask(${t.id}, '${t.content.replace(/'/g, "\\'")}')">Editar</button>
+                        <button class="btn-danger" onclick="deleteTask(${t.id})">Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addTask() {
+            const input = document.getElementById('taskContent');
+            const content = input.value.trim();
+            if (!content) { alert('El contenido de la tarea no puede estar vacío'); return; }
+            await fetch(`${API}/tasks`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ content })
+            });
+            input.value = '';
+            loadTasks();
+        }
+
+        async function toggleDone(id) {
+            await fetch(`${API}/tasks/${id}/done`, { method: 'PATCH' });
+            loadTasks();
+        }
+
+        async function editTask(id, currentContent) {
+            const newContent = prompt('Editar tarea:', currentContent);
+            if (newContent === null || !newContent.trim()) return;
+            await fetch(`${API}/tasks/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ content: newContent.trim() })
+            });
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('¿Eliminar esta tarea?')) return;
+            await fetch(`${API}/tasks/${id}`, { method: 'DELETE' });
+            loadTasks();
+        }
+
+        // ===================== USUARIOS =====================
+
+        async function loadUsers() {
+            const res = await fetch(`${API}/users`);
+            const data = await res.json();
+            document.querySelector("#userTable tbody").innerHTML = data.users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${u.name}</td>
+                    <td>${u.lastname}</td>
+                    <td>${u.address.city}</td>
+                    <td>${u.address.country}</td>
+                    <td>${u.address.code}</td>
+                    <td class="actions">
+                        <button class="btn-warning" onclick='editUser(${u.id}, ${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
+                        <button class="btn-danger" onclick="deleteUser(${u.id})">Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addUser() {
+            const name = document.getElementById('userName').value.trim();
+            const lastname = document.getElementById('userLastname').value.trim();
+            if (!name) { alert('El nombre no puede estar vacío'); return; }
+            if (!lastname) { alert('El apellido no puede estar vacío'); return; }
+            const user = {
+                name,
+                lastname,
+                address: {
+                    city: document.getElementById('userCity').value.trim() || "Arequipa",
+                    country: document.getElementById('userCountry').value.trim() || "Perú",
+                    code: document.getElementById('userCode').value.trim() || "04000"
+                }
+            };
+            await fetch(`${API}/users`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(user)
+            });
+            document.getElementById('userName').value = '';
+            document.getElementById('userLastname').value = '';
+            document.getElementById('userCity').value = '';
+            loadUsers();
+        }
+
+        async function editUser(id, user) {
+            const name = prompt('Nombre:', user.name);
+            if (name === null) return;
+            const lastname = prompt('Apellido:', user.lastname);
+            if (lastname === null) return;
+            const city = prompt('Ciudad:', user.address.city);
+            const country = prompt('País:', user.address.country);
+            const code = prompt('Código postal:', user.address.code);
+            await fetch(`${API}/users/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: name || user.name,
+                    lastname: lastname || user.lastname,
+                    address: {
+                        city: city || user.address.city,
+                        country: country || user.address.country,
+                        code: code || user.address.code
+                    }
+                })
+            });
+            loadUsers();
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('¿Eliminar este usuario?')) return;
+            await fetch(`${API}/users/${id}`, { method: 'DELETE' });
+            loadUsers();
+        }
+
+        // Carga inicial
+        loadTasks();
+        loadUsers();
+    </script>
+</body>
+</html>
