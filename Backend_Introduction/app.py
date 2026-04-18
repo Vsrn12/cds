@@ -100,8 +100,6 @@ def get_tasks():
 # Devuelve UNA sola tarea buscándola por su ID
 @app.route("/tasks/<int:task_id>", methods=["GET"])
 def get_task(task_id):
-    # next() recorre la lista y para cuando encuentra la tarea con ese id
-    # Si no encuentra nada, devuelve None (el segundo argumento)
     task = next((t for t in tasks if t["id"] == task_id), None)
 
     if task is None:
@@ -117,7 +115,7 @@ def add_task():
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400  
 
-    content = data.get("content", "")  # Extraemos el campo "content"
+    content = data.get("content", "") 
 
     if not content or not content.strip():
         return jsonify({"error": "Task content cannot be empty"}), 400
@@ -129,7 +127,7 @@ def add_task():
         "done": False           
     }
 
-    tasks.append(task)  # Guardamos la tarea en la lista
+    tasks.append(task)
     return jsonify({"message": "Task added!", "task": task}), 201
 
 # PUT http://127.0.0.1:5000/tasks/0
@@ -148,7 +146,6 @@ def update_task(task_id):
     return jsonify({"message": "Task updated!", "task": task})
 
 # PATCH http://127.0.0.1:5000/tasks/0/done
-# Cambia el estado done de la tarea (true→false o false→true)
 @app.route("/tasks/<int:task_id>/done", methods=["PATCH"])
 def toggle_done(task_id):
     task = next((t for t in tasks if t["id"] == task_id), None)
@@ -156,8 +153,6 @@ def toggle_done(task_id):
     if task is None:
         return jsonify({"error": "Task not found"}), 404
 
-    # "not task["done"]" invierte el valor booleano
-    # Si era False → pasa a True, si era True → pasa a False
     task["done"] = not task["done"]
 
     status = "completed" if task["done"] else "pending"
